@@ -1,0 +1,72 @@
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-multipart==0.0.6
+
+# Database
+motor==3.3.2  # Async MongoDB driver
+pymongo==4.6.0
+redis==5.0.1
+aioredis==2.0.1
+
+# TikTok Scraping
+yt-dlp==2023.11.16
+httpx==0.25.2
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
+secrets
+
+# Rate Limiting
+slowapi==0.1.9
+
+# Payment Processing
+stripe==7.8.0
+
+# Email
+aiosmtplib==3.0.1
+email-validator==2.1.0
+
+# Telegram Bot
+python-telegram-bot==20.7
+
+# Logging & Monitoring
+python-json-logger==2.0.7
+structlog==23.2.0
+
+# HTTP Client
+aiofiles==23.2.1
+requests==2.31.0
+
+# Utilities
+python-dateutil==2.8.2
+pytz==2023.3
+psutil==5.9.6  # System monitoring
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.25.2  # For testing FastAPI
+
+# Code Quality
+black==23.12.1
+flake8==6.1.0
+isort==5.13.2
+
+# Country Detection (for premium feature)
+geoip2==4.7.0
+pycountry==23.12.11
+
+# Background Tasks
+celery==5.3.4
+redis==5.0.1  # Already listed above
+
+# Admin Panel
+jinja2==3.1.2
