@@ -1,0 +1,24 @@
+[Unit]
+Description=TikTok Video Intelligence API
+After=network.target mongodb.service redis-server.service
+Wants=mongodb.service redis-server.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/Bot-Rasperrypi
+Environment="PATH=/home/pi/Bot-Rasperrypi/venv/bin"
+Environment="PYTHONUNBUFFERED=1"
+ExecStart=/home/pi/Bot-Rasperrypi/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+Restart=always
+RestartSec=10
+StandardOutput=append:/var/log/tiktok-api/access.log
+StandardError=append:/var/log/tiktok-api/error.log
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

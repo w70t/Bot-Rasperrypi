@@ -64,9 +64,16 @@ isort==5.13.2
 geoip2==4.7.0
 pycountry==23.12.11
 
-# Background Tasks
+# Background Tasks & Scheduling
 celery==5.3.4
 redis==5.0.1  # Already listed above
+APScheduler==3.10.4
 
 # Admin Panel
 jinja2==3.1.2
+
+# PDF Generation
+reportlab==4.0.7
+
+# Additional dependencies
+python-dateutil==2.8.2
