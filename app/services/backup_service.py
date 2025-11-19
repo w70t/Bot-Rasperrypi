@@ -137,8 +137,8 @@ class BackupService:
                 shutil.rmtree(temp_dir, ignore_errors=True)
                 return False
 
-            # TODO: Stop services before restore
-            # This should be done manually in production
+            # NOTE: Services should be stopped manually before restore in production
+            # This prevents data corruption during the restore process
 
             # Restore MongoDB
             logger.info("Restoring MongoDB...")
