@@ -16,7 +16,7 @@ from app.database import Database
 from app.services.cache_service import cache_service
 
 # Import routers
-from app.routers import health, video, user, webhooks
+from app.routers import health, video, user, webhooks, admin
 
 # Setup logging
 setup_logging()
@@ -141,6 +141,7 @@ app.include_router(health.router)
 app.include_router(video.router)
 app.include_router(user.router)
 app.include_router(webhooks.router)
+app.include_router(admin.router)
 
 
 # Main entry point for development

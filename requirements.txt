@@ -21,7 +21,6 @@ lxml==4.9.3
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-dotenv==1.0.0
-secrets
 
 # Rate Limiting
 slowapi==0.1.9
@@ -53,7 +52,7 @@ psutil==5.9.6  # System monitoring
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
-httpx==0.25.2  # For testing FastAPI
+pytest-mock==3.12.0
 
 # Code Quality
 black==23.12.1
@@ -66,7 +65,6 @@ pycountry==23.12.11
 
 # Background Tasks & Scheduling
 celery==5.3.4
-redis==5.0.1  # Already listed above
 APScheduler==3.10.4
 
 # Admin Panel
@@ -74,6 +72,3 @@ jinja2==3.1.2
 
 # PDF Generation
 reportlab==4.0.7
-
-# Additional dependencies
-python-dateutil==2.8.2

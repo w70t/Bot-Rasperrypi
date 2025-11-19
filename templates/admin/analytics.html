@@ -1,0 +1,627 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Analytics{% endblock %}
+
+{% block extra_head %}
+<meta name="csrf-token" content="{{ csrf_token }}">
+{% endblock %}
+
+{% block content %}
+<div class="fade-in">
+
+    <!-- Page Header -->
+    <div class="flex items-center justify-between mb-8">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-2">Analytics & Insights</h2>
+            <p class="text-gray-600">Track performance metrics and business insights</p>
+        </div>
+
+        <!-- Period Selector -->
+        <div class="flex items-center space-x-2">
+            <a href="?period=7d" class="px-4 py-2 rounded-lg text-sm font-medium {% if period == '7d' %}bg-blue-600 text-white{% else %}bg-white border border-gray-300 text-gray-700 hover:bg-gray-50{% endif %}">
+                7 Days
+            </a>
+            <a href="?period=30d" class="px-4 py-2 rounded-lg text-sm font-medium {% if period == '30d' %}bg-blue-600 text-white{% else %}bg-white border border-gray-300 text-gray-700 hover:bg-gray-50{% endif %}">
+                30 Days
+            </a>
+            <a href="?period=90d" class="px-4 py-2 rounded-lg text-sm font-medium {% if period == '90d' %}bg-blue-600 text-white{% else %}bg-white border border-gray-300 text-gray-700 hover:bg-gray-50{% endif %}">
+                90 Days
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+
+        <!-- Total Requests -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 rounded-lg gradient-blue flex items-center justify-center">
+                    <i class="fas fa-chart-bar text-white text-xl"></i>
+                </div>
+            </div>
+            <h3 class="text-3xl font-bold text-gray-800 mb-1">{{ "{:,}".format(total_requests_period) }}</h3>
+            <p class="text-sm text-gray-600">Total Requests</p>
+            <div class="mt-3 flex items-center text-sm text-green-600">
+                <i class="fas fa-arrow-up mr-1"></i>
+                <span>{{ period|replace('d', ' days') }}</span>
+            </div>
+        </div>
+
+        <!-- Average Daily Requests -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 rounded-lg gradient-green flex items-center justify-center">
+                    <i class="fas fa-calendar-day text-white text-xl"></i>
+                </div>
+            </div>
+            <h3 class="text-3xl font-bold text-gray-800 mb-1">{{ "{:,}".format(avg_daily_requests) }}</h3>
+            <p class="text-sm text-gray-600">Avg. Daily Requests</p>
+            <div class="mt-3 flex items-center text-sm text-gray-600">
+                <i class="fas fa-chart-line mr-1"></i>
+                <span>Per day average</span>
+            </div>
+        </div>
+
+        <!-- Average Success Rate -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 rounded-lg gradient-purple flex items-center justify-center">
+                    <i class="fas fa-check-circle text-white text-xl"></i>
+                </div>
+            </div>
+            <h3 class="text-3xl font-bold text-gray-800 mb-1">{{ avg_success_rate }}%</h3>
+            <p class="text-sm text-gray-600">Success Rate</p>
+            <div class="mt-3 flex items-center text-sm text-green-600">
+                <i class="fas fa-thumbs-up mr-1"></i>
+                <span>Excellent!</span>
+            </div>
+        </div>
+
+        <!-- Peak Day -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="w-12 h-12 rounded-lg gradient-orange flex items-center justify-center">
+                    <i class="fas fa-fire text-white text-xl"></i>
+                </div>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-1">{{ peak_day }}</h3>
+            <p class="text-sm text-gray-600">Peak Traffic Day</p>
+            <div class="mt-3 flex items-center text-sm text-orange-600">
+                <i class="fas fa-star mr-1"></i>
+                <span>Busiest day</span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Main Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
+        <!-- Usage Over Time Chart -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fas fa-chart-line text-blue-600 mr-2"></i>
+                    API Requests Over Time
+                </h3>
+                <button onclick="exportChart('usageChart')" class="text-gray-500 hover:text-gray-700" title="Export Chart">
+                    <i class="fas fa-download"></i>
+                </button>
+            </div>
+            <div class="relative" style="height: 300px;">
+                <canvas id="usageChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Success Rate Over Time Chart -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fas fa-percentage text-green-600 mr-2"></i>
+                    Success Rate Trend
+                </h3>
+                <button onclick="exportChart('successChart')" class="text-gray-500 hover:text-gray-700" title="Export Chart">
+                    <i class="fas fa-download"></i>
+                </button>
+            </div>
+            <div class="relative" style="height: 300px;">
+                <canvas id="successChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Second Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+
+        <!-- Active Users Over Time -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fas fa-users text-purple-600 mr-2"></i>
+                    Active Users Daily
+                </h3>
+                <button onclick="exportChart('usersChart')" class="text-gray-500 hover:text-gray-700" title="Export Chart">
+                    <i class="fas fa-download"></i>
+                </button>
+            </div>
+            <div class="relative" style="height: 300px;">
+                <canvas id="usersChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Plan Distribution -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fas fa-chart-pie text-orange-600 mr-2"></i>
+                    Plan Distribution
+                </h3>
+                <button onclick="exportChart('planChart')" class="text-gray-500 hover:text-gray-700" title="Export Chart">
+                    <i class="fas fa-download"></i>
+                </button>
+            </div>
+            <div class="relative" style="height: 300px;">
+                <canvas id="planChart"></canvas>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Revenue Forecast -->
+    <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h3 class="text-lg font-bold text-gray-800">
+                    <i class="fas fa-crystal-ball text-blue-600 mr-2"></i>
+                    Revenue Forecast (Next 6 Months)
+                </h3>
+                <p class="text-sm text-gray-600 mt-1">Projected Monthly Recurring Revenue based on current trends</p>
+            </div>
+            <button onclick="exportChart('revenueChart')" class="text-gray-500 hover:text-gray-700" title="Export Chart">
+                <i class="fas fa-download"></i>
+            </button>
+        </div>
+        <div class="relative" style="height: 350px;">
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Detailed Insights -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- Top Performing Days -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                <i class="fas fa-trophy text-yellow-500 mr-2"></i>
+                Top Performing Days
+            </h3>
+            <div class="space-y-3">
+                {% set chart_data = chart_labels|length %}
+                {% for i in range([5, chart_data]|min) %}
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm mr-3">
+                            {{ i + 1 }}
+                        </div>
+                        <span class="text-sm font-medium text-gray-700">Day {{ i + 1 }}</span>
+                    </div>
+                    <span class="text-sm font-bold text-gray-800">---</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Usage Patterns -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                Key Insights
+            </h3>
+            <div class="space-y-4">
+                <div class="flex items-start">
+                    <div class="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-700">High Success Rate</p>
+                        <p class="text-xs text-gray-500 mt-1">Your API maintains {{ avg_success_rate }}% success rate</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-700">Steady Growth</p>
+                        <p class="text-xs text-gray-500 mt-1">API usage shows consistent growth pattern</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-700">Peak Performance</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ peak_day }} had the highest traffic</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3"></div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-700">Daily Average</p>
+                        <p class="text-xs text-gray-500 mt-1">{{ "{:,}".format(avg_daily_requests) }} requests per day</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                <i class="fas fa-bolt text-blue-500 mr-2"></i>
+                Quick Actions
+            </h3>
+            <div class="space-y-3">
+                <a href="/admin/users" class="block p-3 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-blue-700">
+                            <i class="fas fa-users mr-2"></i>Manage Users
+                        </span>
+                        <i class="fas fa-chevron-right text-blue-400"></i>
+                    </div>
+                </a>
+                <a href="/admin/dashboard" class="block p-3 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-green-700">
+                            <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+                        </span>
+                        <i class="fas fa-chevron-right text-green-400"></i>
+                    </div>
+                </a>
+                <button onclick="refreshAnalytics()" class="w-full p-3 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-purple-700">
+                            <i class="fas fa-sync mr-2"></i>Refresh Data
+                        </span>
+                        <i class="fas fa-chevron-right text-purple-400"></i>
+                    </div>
+                </button>
+                <button onclick="window.print()" class="w-full p-3 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-medium text-orange-700">
+                            <i class="fas fa-print mr-2"></i>Print Report
+                        </span>
+                        <i class="fas fa-chevron-right text-orange-400"></i>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Parse data from backend
+    const chartLabels = {{ chart_labels|safe }};
+    const chartRequests = {{ chart_requests|safe }};
+    const chartUsers = {{ chart_users|safe }};
+    const chartSuccessRate = {{ chart_success_rate|safe }};
+    const planLabels = {{ plan_chart_labels|safe }};
+    const planValues = {{ plan_chart_values|safe }};
+    const forecastLabels = {{ forecast_labels|safe }};
+    const forecastValues = {{ forecast_values|safe }};
+
+    // Chart.js default configuration
+    Chart.defaults.font.family = 'Inter, system-ui, sans-serif';
+    Chart.defaults.color = '#6b7280';
+
+    // Usage Over Time Chart
+    const usageCtx = document.getElementById('usageChart').getContext('2d');
+    const usageChart = new Chart(usageCtx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'API Requests',
+                data: chartRequests,
+                borderColor: 'rgba(59, 130, 246, 1)',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: 'rgba(59, 130, 246, 1)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: 'bold' },
+                    bodyFont: { size: 13 },
+                    callbacks: {
+                        label: function(context) {
+                            return 'Requests: ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // Success Rate Chart
+    const successCtx = document.getElementById('successChart').getContext('2d');
+    const successChart = new Chart(successCtx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Success Rate (%)',
+                data: chartSuccessRate,
+                borderColor: 'rgba(16, 185, 129, 1)',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: 'rgba(16, 185, 129, 1)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            return 'Success Rate: ' + context.parsed.y + '%';
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // Active Users Chart
+    const usersCtx = document.getElementById('usersChart').getContext('2d');
+    const usersChart = new Chart(usersCtx, {
+        type: 'bar',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Active Users',
+                data: chartUsers,
+                backgroundColor: 'rgba(139, 92, 246, 0.8)',
+                borderColor: 'rgba(139, 92, 246, 1)',
+                borderWidth: 2,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            return 'Active Users: ' + context.parsed.y;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // Plan Distribution Chart
+    const planCtx = document.getElementById('planChart').getContext('2d');
+    const planChart = new Chart(planCtx, {
+        type: 'doughnut',
+        data: {
+            labels: planLabels,
+            datasets: [{
+                data: planValues,
+                backgroundColor: [
+                    'rgba(59, 130, 246, 0.8)',
+                    'rgba(16, 185, 129, 0.8)',
+                    'rgba(139, 92, 246, 0.8)',
+                    'rgba(251, 146, 60, 0.8)'
+                ],
+                borderColor: [
+                    'rgba(59, 130, 246, 1)',
+                    'rgba(16, 185, 129, 1)',
+                    'rgba(139, 92, 246, 1)',
+                    'rgba(251, 146, 60, 1)'
+                ],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        font: { size: 12 }
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                            return `${label}: ${value} (${percentage}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Revenue Forecast Chart
+    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+    const revenueChart = new Chart(revenueCtx, {
+        type: 'line',
+        data: {
+            labels: forecastLabels,
+            datasets: [{
+                label: 'Projected MRR',
+                data: forecastValues,
+                borderColor: 'rgba(251, 146, 60, 1)',
+                backgroundColor: 'rgba(251, 146, 60, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: 'rgba(251, 146, 60, 1)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2,
+                borderDash: [5, 5]
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    callbacks: {
+                        label: function(context) {
+                            return 'MRR: $' + context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+
+    // Export chart function
+    function exportChart(chartId) {
+        const chart = Chart.getChart(chartId);
+        if (chart) {
+            const url = chart.toBase64Image();
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${chartId}_${new Date().toISOString().split('T')[0]}.png`;
+            link.click();
+            showToast('Chart exported successfully!', 'success');
+        }
+    }
+
+    // Refresh analytics
+    function refreshAnalytics() {
+        showLoading();
+        setTimeout(() => {
+            location.reload();
+        }, 500);
+    }
+
+    // Print styles
+    window.addEventListener('beforeprint', () => {
+        document.querySelectorAll('.no-print').forEach(el => el.style.display = 'none');
+    });
+
+    window.addEventListener('afterprint', () => {
+        document.querySelectorAll('.no-print').forEach(el => el.style.display = '');
+    });
+</script>
+{% endblock %}
