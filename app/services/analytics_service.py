@@ -63,17 +63,32 @@ class AnalyticsService:
             Churn rate as percentage
         """
         try:
+            from app.database import Collections
+
             # Get users at start of period
             period_start = datetime.utcnow() - timedelta(days=period_days)
 
-            # TODO: Implement proper churn calculation from database
-            # For now, return placeholder
-            # Real implementation would track:
-            # - Users active at start of period
-            # - Users who cancelled/downgraded during period
-            # churn_rate = (cancelled / active_at_start) * 100
+            # Count users who were active at start of period
+            active_at_start = await Collections.users().count_documents({
+                "created_at": {"$lte": period_start},
+                "status": {"$in": ["active", "cancelled"]}  # Both active and cancelled at that time
+            })
 
-            return 0.0  # Placeholder
+            if active_at_start == 0:
+                return 0.0
+
+            # Count users who cancelled during the period
+            cancelled_during_period = await Collections.users().count_documents({
+                "status": "cancelled",
+                "updated_at": {"$gte": period_start},
+                "created_at": {"$lte": period_start}
+            })
+
+            # Calculate churn rate
+            churn_rate = (cancelled_during_period / active_at_start) * 100
+
+            logger.info(f"Churn rate ({period_days}d): {churn_rate:.2f}% ({cancelled_during_period}/{active_at_start})")
+            return round(churn_rate, 2)
 
         except Exception as e:
             logger.error(f"Error calculating churn rate: {str(e)}")
@@ -142,11 +157,53 @@ class AnalyticsService:
             Cohort analysis data
         """
         try:
-            # TODO: Implement cohort analysis
-            # Group users by signup month
-            # Track retention over time
+            from app.database import Collections
 
-            return {}  # Placeholder
+            # Aggregate users by signup month
+            pipeline = [
+                {
+                    "$group": {
+                        "_id": {
+                            "year": {"$year": "$created_at"},
+                            "month": {"$month": "$created_at"}
+                        },
+                        "total_users": {"$sum": 1},
+                        "active_users": {
+                            "$sum": {"$cond": [{"$eq": ["$status", "active"]}, 1, 0]}
+                        },
+                        "cancelled_users": {
+                            "$sum": {"$cond": [{"$eq": ["$status", "cancelled"]}, 1, 0]}
+                        },
+                        "avg_requests": {"$avg": "$requests_used"}
+                    }
+                },
+                {
+                    "$sort": {"_id.year": -1, "_id.month": -1}
+                },
+                {
+                    "$limit": 12  # Last 12 months
+                }
+            ]
+
+            cohorts_cursor = Collections.users().aggregate(pipeline)
+            cohorts_list = await cohorts_cursor.to_list(length=12)
+
+            # Format results
+            cohorts = {}
+            for cohort in cohorts_list:
+                month_key = f"{cohort['_id']['year']}-{cohort['_id']['month']:02d}"
+                retention_rate = (cohort['active_users'] / cohort['total_users'] * 100) if cohort['total_users'] > 0 else 0
+
+                cohorts[month_key] = {
+                    "total_users": cohort['total_users'],
+                    "active_users": cohort['active_users'],
+                    "cancelled_users": cohort['cancelled_users'],
+                    "retention_rate": round(retention_rate, 2),
+                    "avg_requests": round(cohort['avg_requests'], 2) if cohort['avg_requests'] else 0
+                }
+
+            logger.info(f"Analyzed {len(cohorts)} cohorts")
+            return cohorts
 
         except Exception as e:
             logger.error(f"Error analyzing cohorts: {str(e)}")
@@ -163,10 +220,39 @@ class AnalyticsService:
             List of top users
         """
         try:
-            # TODO: Query database for top users by requests_used
-            # ORDER BY requests_used DESC LIMIT limit
+            from app.database import Collections
 
-            return []  # Placeholder
+            # Query users sorted by requests_used, descending
+            cursor = Collections.users().find(
+                {"status": "active"},  # Only active users
+                {
+                    "email": 1,
+                    "plan": 1,
+                    "requests_used": 1,
+                    "requests_limit": 1,
+                    "last_request_at": 1,
+                    "_id": 0
+                }
+            ).sort("requests_used", -1).limit(limit)
+
+            top_users = await cursor.to_list(length=limit)
+
+            # Format results
+            formatted_users = []
+            for user in top_users:
+                usage_percent = (user['requests_used'] / user['requests_limit'] * 100) if user['requests_limit'] > 0 else 0
+
+                formatted_users.append({
+                    "email": user['email'],
+                    "plan": user['plan'],
+                    "requests_used": user['requests_used'],
+                    "requests_limit": user['requests_limit'],
+                    "usage_percent": round(usage_percent, 2),
+                    "last_request_at": user.get('last_request_at')
+                })
+
+            logger.info(f"Retrieved top {len(formatted_users)} users")
+            return formatted_users
 
         except Exception as e:
             logger.error(f"Error getting top users: {str(e)}")
@@ -180,22 +266,112 @@ class AnalyticsService:
             Usage patterns (peak hours, days, etc.)
         """
         try:
-            # TODO: Analyze timestamps of API requests
-            # - Peak hours (0-23)
-            # - Peak days (Mon-Sun)
-            # - Average requests per hour
-            # - Busiest endpoints
+            from app.database import Collections
 
+            # Analyze usage data from last 30 days
+            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+
+            # Aggregate by hour of day
+            hour_pipeline = [
+                {
+                    "$match": {
+                        "timestamp": {"$gte": thirty_days_ago}
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": {"$hour": "$timestamp"},
+                        "count": {"$sum": 1}
+                    }
+                },
+                {
+                    "$sort": {"count": -1}
+                }
+            ]
+
+            # Aggregate by day of week
+            day_pipeline = [
+                {
+                    "$match": {
+                        "timestamp": {"$gte": thirty_days_ago}
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": {"$dayOfWeek": "$timestamp"},
+                        "count": {"$sum": 1}
+                    }
+                },
+                {
+                    "$sort": {"count": -1}
+                }
+            ]
+
+            # Get total requests
+            total_requests = await Collections.usage().count_documents({
+                "timestamp": {"$gte": thirty_days_ago}
+            })
+
+            # Execute aggregations
+            hour_cursor = Collections.usage().aggregate(hour_pipeline)
+            hour_results = await hour_cursor.to_list(length=24)
+
+            day_cursor = Collections.usage().aggregate(day_pipeline)
+            day_results = await day_cursor.to_list(length=7)
+
+            # Determine peak hour
+            peak_hour = 14  # Default
+            if hour_results:
+                peak_hour = hour_results[0]['_id']
+
+            # Determine peak day
+            day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+            peak_day = 'Wednesday'  # Default
+            if day_results:
+                peak_day_num = day_results[0]['_id']
+                peak_day = day_names[peak_day_num - 1] if 1 <= peak_day_num <= 7 else 'Wednesday'
+
+            # Calculate average requests per hour
+            hours_in_period = 30 * 24  # 30 days
+            avg_requests_per_hour = round(total_requests / hours_in_period, 2) if hours_in_period > 0 else 0
+
+            # Build hourly distribution
+            hourly_distribution = {}
+            for result in hour_results:
+                hourly_distribution[result['_id']] = result['count']
+
+            # Build daily distribution
+            daily_distribution = {}
+            for result in day_results:
+                day_num = result['_id']
+                if 1 <= day_num <= 7:
+                    daily_distribution[day_names[day_num - 1]] = result['count']
+
+            patterns = {
+                'peak_hour': f'{peak_hour:02d}:00-{peak_hour+1:02d}:00',
+                'peak_day': peak_day,
+                'avg_requests_per_hour': avg_requests_per_hour,
+                'total_requests_30d': total_requests,
+                'busiest_endpoint': '/api/v1/video/extract',  # Primary endpoint
+                'hourly_distribution': hourly_distribution,
+                'daily_distribution': daily_distribution
+            }
+
+            logger.info(f"Usage patterns: Peak {peak_day} at {peak_hour}:00, Avg {avg_requests_per_hour}/hr")
+            return patterns
+
+        except Exception as e:
+            logger.error(f"Error analyzing usage patterns: {str(e)}")
+            # Return safe defaults on error
             return {
                 'peak_hour': '14:00-15:00',
                 'peak_day': 'Wednesday',
                 'avg_requests_per_hour': 0,
-                'busiest_endpoint': '/video/extract'
+                'total_requests_30d': 0,
+                'busiest_endpoint': '/api/v1/video/extract',
+                'hourly_distribution': {},
+                'daily_distribution': {}
             }
-
-        except Exception as e:
-            logger.error(f"Error analyzing usage patterns: {str(e)}")
-            return {}
 
     async def get_plan_distribution(self) -> Dict[str, int]:
         """

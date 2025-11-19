@@ -50,10 +50,14 @@ class InvoiceService:
             PDF bytes or None if failed
         """
         try:
+            from app.database import Collections
+
             # Generate invoice number if not provided
             if not invoice_number:
                 timestamp = datetime.utcnow().strftime('%Y%m%d%H%M%S')
                 invoice_number = f"INV-{timestamp}"
+
+            invoice_date = datetime.utcnow()
 
             # Create PDF in memory
             buffer = io.BytesIO()
@@ -83,9 +87,8 @@ class InvoiceService:
             story.append(Spacer(1, 0.3*inch))
 
             # Invoice Date
-            invoice_date = datetime.utcnow().strftime('%B %d, %Y')
             date_info = Paragraph(
-                f"<b>Date:</b> {invoice_date}",
+                f"<b>Date:</b> {invoice_date.strftime('%B %d, %Y')}",
                 styles['Normal']
             )
             story.append(date_info)
@@ -160,7 +163,21 @@ class InvoiceService:
             with open(invoice_file, 'wb') as f:
                 f.write(pdf_bytes)
 
-            logger.info(f"✓ Invoice generated: {invoice_number}")
+            # Store invoice metadata in database
+            invoice_metadata = {
+                "invoice_number": invoice_number,
+                "user_email": user_email,
+                "amount": amount,
+                "plan": plan,
+                "period": period,
+                "invoice_date": invoice_date,
+                "status": "paid",
+                "created_at": invoice_date
+            }
+
+            await Collections.invoices().insert_one(invoice_metadata)
+
+            logger.info(f"✓ Invoice generated and stored: {invoice_number}")
             return pdf_bytes
 
         except Exception as e:
@@ -199,15 +216,28 @@ class InvoiceService:
             user_email: User's email
 
         Returns:
-            List of invoice filenames
+            List of invoice metadata dictionaries
         """
         try:
-            # Search for invoices (in real implementation, query database)
-            invoices = []
-            for invoice_file in self.invoices_dir.glob('INV-*.pdf'):
-                # TODO: Filter by user_email from database
-                invoices.append(invoice_file.name)
+            from app.database import Collections
 
+            # Query invoices collection filtered by user_email
+            cursor = Collections.invoices().find(
+                {"user_email": user_email},
+                {
+                    "invoice_number": 1,
+                    "amount": 1,
+                    "plan": 1,
+                    "period": 1,
+                    "invoice_date": 1,
+                    "status": 1,
+                    "_id": 0
+                }
+            ).sort("invoice_date", -1)  # Most recent first
+
+            invoices = await cursor.to_list(length=None)
+
+            logger.info(f"Retrieved {len(invoices)} invoices for {user_email}")
             return invoices
 
         except Exception as e:
